@@ -1,6 +1,8 @@
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+#from statsmodels.graphics.gofplots import qqplot
+from scipy.stats import shapiro
 
 def average(df):
     return np.mean(df)
@@ -22,6 +24,20 @@ def outlier1(name, data, avg, std):
 def outlier2(name, data, median, iqr):
     print(f"{name} - {name}_median > 1.5 * {name}_iqr")
     return np.array(data[np.abs(data - median) > 1.5 * iqr])
+
+def null_hypothesis(name, df, avg, std, median, iqr):
+    stat, p = shapiro(df)
+    if(p > 0.05):
+        print(f'{name} Normal (not refusing Null Hypothesis)')
+        # Usare std per calcolare outlier
+        print('std-calculated outliers')
+        print(outlier1(name, df, avg, std))
+
+    else:
+        print(f'{name} Non normal (refusing Null Hypothesis)')
+        # Usare iqr per calculare outlier
+        print('iqr-calculated outliers')
+        print(outlier2(name, df, median, iqr))
 
 
 if __name__ == "__main__":
@@ -51,7 +67,7 @@ if __name__ == "__main__":
     month2_iqr = IQR(df_month2)
     print(f"iqr: {month2_iqr}")
 
-    print("-----|-----")
+    print("-----Outliers-----")
     month1_es1 = outlier1(month1, df_month1, month1_average, month1_std)
     print(month1_es1)
     month1_es2 = outlier2(month1, df_month1, month1_median, month1_iqr)
@@ -65,4 +81,15 @@ if __name__ == "__main__":
     plt.figure()
     plt.title(f"Boxplot {month1} e {month2}")
     df[[month1,month2]].boxplot()
+
+
+    print("-----Normal Distribution and outliers-----")
+
+    #qqplot(df_month1.sort_values(), line='q')
+    #qqplot(df_month2.sort_values(), line='q')
+
+    null_hypothesis(month1, df_month1, month1_average, month1_std, month1_median, month1_iqr)
+    print("")
+    null_hypothesis(month2, df_month2, month2_average, month2_std, month2_median, month2_iqr)
+
     plt.show()
