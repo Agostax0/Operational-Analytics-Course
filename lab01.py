@@ -42,8 +42,8 @@ def null_hypothesis(name, df, avg, std, median, iqr):
 
 if __name__ == "__main__":
     df = pd.read_csv("./traffico16.csv")
-    month1 = 'set1'
-    month2 = 'set2'
+    month1 = 'ago1'
+    month2 = 'ago2'
 
     df_month1 = df[month1].dropna()
     print(f"-----{month1}-----")
