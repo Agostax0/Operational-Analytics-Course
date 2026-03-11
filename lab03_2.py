@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+from statsmodels.tsa.seasonal import seasonal_decompose
 
 if __name__ == "__main__":
     og_traffico = pd.read_csv('traffico16.csv', usecols= ['set2'])
@@ -35,6 +36,24 @@ if __name__ == "__main__":
     plt.plot(t4_interpolate, label='interpolated', color='blue')
     plt.plot(t1_f, label='ffill', color='green')
     plt.plot(t2_b, label='bfill', color='orange')
+    plt.legend()
+
+
+
+    df = og_traffico.fillna(value=og_traffico.mean())
+    result = seasonal_decompose(df, model='additive', period=7)
+    observed = result.observed
+    trend = result.trend
+    seasonal = result.seasonal
+    resid = result.resid
+
+    std = resid.std()
+
+    plt.figure()
+    plt.plot(resid, "o", label='datapoints')
+    plt.hlines(0,0,len(resid))
+    plt.hlines(1.5*std, 0, len(resid), color='red', label='std limits')
+    plt.hlines(-1.5*std, 0, len(resid), color='red')
     plt.legend()
     plt.show()
 
