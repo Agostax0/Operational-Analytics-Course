@@ -23,7 +23,7 @@ if __name__ == "__main__":
     print(f"{p[1] > 0.05}") # Null hypothesis
 
 
-    model = ARIMA(data_diffm_diff1_log[:-12], order=(2,1,0))
+    model = ARIMA(data_diffm_diff1_log[:-12], order=(1,0,1))
     model_fit = model.fit()
 
     #print(model_fit.summary())
