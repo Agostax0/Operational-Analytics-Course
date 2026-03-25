@@ -27,6 +27,7 @@ if __name__ == "__main__":
     plt.plot(rawdata, label = 'data')
     plt.plot(ypred, label = 'pred')
     plt.plot([None for i in ypred] + [x for x in yfore], label = 'fore' )
+    plt.legend()
 
     plt.figure()
     fitted_series = pd.Series(fitted)
@@ -35,5 +36,4 @@ if __name__ == "__main__":
     plt.plot(yfore)
     plt.fill_between(lower_series.index, lower_series, upper_series, color='k', alpha = 0.15)
 
-    plt.legend()
     plt.show()
