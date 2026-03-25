@@ -1,3 +1,4 @@
+import numpy as np
 import pmdarima as pm
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -18,11 +19,21 @@ if __name__ == "__main__":
     mseasorder = model.seasonal_order
 
     fitted = model.fit(train)
-    yfore = fitted.predict(12)
+    n_periods = 12
+    yfore, confint = fitted.predict(n_periods, return_conf_int = True)
     ypred = fitted.predict_in_sample()
+
 
     plt.plot(rawdata, label = 'data')
     plt.plot(ypred, label = 'pred')
     plt.plot([None for i in ypred] + [x for x in yfore], label = 'fore' )
+
+    plt.figure()
+    fitted_series = pd.Series(fitted)
+    lower_series = pd.Series(confint[:,0])
+    upper_series = pd.Series(confint[:,1])
+    plt.plot(yfore)
+    plt.fill_between(lower_series.index, lower_series, upper_series, color='k', alpha = 0.15)
+
     plt.legend()
     plt.show()
