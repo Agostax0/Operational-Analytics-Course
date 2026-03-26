@@ -2,6 +2,17 @@ import numpy as np
 import pmdarima as pm
 import pandas as pd
 import matplotlib.pyplot as plt
+from statsmodels.tsa.stattools import acf
+# Accuracy metrics
+def forecast_accuracy(forecast, actual):
+    mape = np.mean(np.abs(forecast - actual)/np.abs(actual)) # MAPE
+    me = np.mean(forecast - actual) # ME
+    mae = np.mean(np.abs(forecast - actual)) # MAE
+    mpe = np.mean((forecast - actual)/actual) # MPE
+    rmse = np.mean((forecast - actual)**2)**.5 # RMSE
+    corr = np.corrcoef(forecast, actual)[0,1] # correlation coeff
+    acf1 = acf(forecast-actual)[1] # ACF1
+    return {'mape':mape, 'me':me, 'mae': mae, 'mpe': mpe, 'rmse':rmse, 'acf1':acf1, 'corr':corr}
 
 if __name__ == "__main__":
     df = pd.read_csv('M3C_monthly.csv')
@@ -23,6 +34,7 @@ if __name__ == "__main__":
     yfore, confint = fitted.predict(n_periods, return_conf_int = True)
     ypred = fitted.predict_in_sample()
 
+    print(forecast_accuracy(yfore, test))
 
     plt.plot(rawdata, label = 'data')
     plt.plot(ypred, label = 'pred')
@@ -35,5 +47,4 @@ if __name__ == "__main__":
     upper_series = pd.Series(confint[:,1])
     plt.plot(yfore)
     plt.fill_between(lower_series.index, lower_series, upper_series, color='k', alpha = 0.15)
-
     plt.show()
