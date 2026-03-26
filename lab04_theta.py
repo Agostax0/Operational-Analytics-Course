@@ -47,13 +47,11 @@ if __name__ == "__main__":
     plt.plot(test, label = 'actual')
     plt.legend()
 
-
-    hw_rmse = forecast_accuracy(hw_fore, test)['rmse']
-    theta_rmse = forecast_accuracy(theta_fore, test)['rmse']
-
     rt = dm_test(test, hw_fore, theta_fore, crit='MSE')
     print(rt)
 
-    print(f"Rejecting Null Hypothesys {rt[0] < -1.96 or rt[0] > 1.96}")
+    ho = np.abs(rt[1]) < 0.025
+
+    print(f"Null Hypothesis (False = models are not statistically equivalent): {ho}")
 
     plt.show()
