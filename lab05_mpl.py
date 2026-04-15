@@ -12,8 +12,8 @@ def create_dataset(dataset, look_back=1):
 if __name__ == '__main__':
     # load the dataset, split into input (X) and output (y) variables
     df = pd.read_csv('M3C_monthly.csv')
-    rawdata_x = np.arange(len(df.iloc[490, 6:].values))
-    rawdata_y = df.iloc[490, 6:].values.astype(float)
+    rawdata_x = np.arange(len(df.iloc[505, 6:].values))
+    rawdata_y = df.iloc[505, 6:].values.astype(float)
     rawdata = pd.DataFrame(rawdata_y.transpose(), rawdata_x.transpose())
     print(f"df2: {rawdata.shape}")
 
@@ -55,7 +55,8 @@ if __name__ == '__main__':
             optimizer.zero_grad()  # clear old gradients
             loss.backward()  # here the learning
             optimizer.step()
-        print(f'Finished epoch {epoch}, latest loss {loss}')
+        if epoch % 10 == 0:
+            print(f'Finished epoch {epoch}, latest loss {loss}')
 
     #alternative1 : model evaluation as RMSE
     model.eval()  # tells the model we are evaluating, not training

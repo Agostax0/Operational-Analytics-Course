@@ -4,6 +4,15 @@ import pandas as pd
 import torch
 import torch.nn as nn
 from sklearn.preprocessing import MinMaxScaler
+import random
+
+def set_seed(seed=42):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)          # if using GPU
+    torch.backends.cudnn.deterministic = True  # deterministic ops
+    torch.backends.cudnn.benchmark = False     # disable auto-tuner
 
 
 def create_dataset(data, seq_len):
@@ -31,8 +40,8 @@ if __name__ == "__main__":
     # data = df.values.astype(float)
 
     df = pd.read_csv('M3C_monthly.csv')
-    rawdata_x = np.arange(len(df.iloc[490, 6:].values))
-    rawdata_y = df.iloc[490, 6:].values.astype(float)
+    rawdata_x = np.arange(len(df.iloc[505, 6:].values))
+    rawdata_y = df.iloc[505, 6:].values.astype(float)
     rawdata = pd.DataFrame(rawdata_y.transpose(), rawdata_x.transpose())
     df = rawdata
     data = rawdata
@@ -45,6 +54,7 @@ if __name__ == "__main__":
     X_train = torch.tensor(X, dtype=torch.float32)
     y_train = torch.tensor(y, dtype=torch.float32)
 
+    set_seed(666)
     model = LSTM(num_layers=2, hidden_size=48)
     loss_fn = nn.MSELoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
@@ -74,7 +84,7 @@ if __name__ == "__main__":
     # Plot
 
     plt.plot(df.values, label="Actual")
-    plt.plot(range(len(df), len(df) + 12), forecast, label="Forecast", color='red')
+    plt.plot(range(len(df) - 12 - 1, len(df) - 1), forecast, label="Forecast", color='red')
     plt.legend()
     plt.title("BoxJenkins LSTM series")
     plt.show(block=True)  # block ensures it writes the window properly, it waits for it
