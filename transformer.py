@@ -466,6 +466,6 @@ if __name__ == "__main__":
     train_model(model, train_ds, test_ds)
     model.eval()
     # plot_sliding_window_predictions(model, train_ds, test_ds)
-    torch.save(model.state_dict(), "timeseries_transformer.pth")
+    # torch.save(model.state_dict(), "timeseries_transformer.pth")
     forecast_all_inputs(model =model)
     plt.show(block = True)
