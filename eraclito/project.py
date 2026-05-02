@@ -1,6 +1,7 @@
 import torch.nn as nn
 from pandas.core.interchange.dataframe_protocol import DataFrame
 from scipy import stats
+from statsmodels.tsa.statespace.sarimax import SARIMAX
 from sympy.abc import alpha
 from xgboost import XGBRegressor
 from sklearn.ensemble import RandomForestRegressor
@@ -68,7 +69,7 @@ if __name__ == "__main__":
 
         print(f"feature {feature}, p: {p}")
         normally_distributed = "" if p > 0.05 else "Not "
-        print(f'\t{normally_distributed}normally distributed ({normally_distributed}refusing Null Hypothesis)')
+        print(f'\t{normally_distributed}normally distributed ({not normally_distributed}refusing Null Hypothesis)')
 
     # No feature is normally Distributed
     # feature DAILY_TMIN, p: 1.923672196823777e-30
@@ -117,10 +118,6 @@ if __name__ == "__main__":
     plt.savefig('Tmin_outliers.png')
     print("Saved plot to file: Tmin_outliers.png")
 
-    # SARIMAX
-
-    # LSTM / MLP + Boost / Forest
-
     fig, ax = plt.subplots(figsize=(18, 8))
     ax.set_xlabel("Year")
     ax.set_ylabel("Temperature C°")
@@ -129,9 +126,58 @@ if __name__ == "__main__":
     ax.grid(axis='x', color='gray', linestyle='--', linewidth=0.5, alpha=0.5)
 
     for feature in [DAILY_TMIN, DAILY_TMAX]:
-        ax.plot(dataset[PragaDate], dataset[feature], label=feature, alpha = 0.7)
+        ax.plot(dataset[PragaDate], dataset[feature], label=feature, alpha=0.7)
 
     ax.legend()
     plt.savefig('Tmax-Tmin_figure.png')
     print("Saved plot to file: Tmax-Tmin_figure.png")
-    plt.show(block = True)
+
+
+    # SARIMAX
+
+    split = 0.8
+    train_size = int(len(dataset) * split)
+    test_size = len(dataset) - train_size
+
+    train, test = dataset[:train_size], dataset[train_size:]
+
+    # This method needs stationarity that will be checked with Augumented Dickey Fuller test
+    # adf = adfuller(train[DAILY_TMAX].dropna())
+
+    auto_model = pm.auto_arima(train[DAILY_TMAX],
+                            test='adf',
+                            exogenous=train[[DAILY_TMIN]],
+                            seasonal=True, m=365,
+                            max_p=3, max_q=3, max_P=2, max_Q=2,
+                            stepwise=True, trace=True)
+
+    p, d, q = auto_model.order
+    P, D, Q, s = auto_model.seasonal_order
+
+    print(auto_model.order)
+    print(auto_model.seasonal_order)
+
+    sarimax_model = SARIMAX(train[DAILY_TMAX],
+                            exog=train[[DAILY_TMIN]],
+                            order=(p, d, q),
+                            seasonal_order=(P, D, Q, s)).fit()
+
+    sarimax_model_fitted = sarimax_model.fit(train[DAILY_TMAX])
+    sarimax_model_forecast, sarimax_model_confidence = sarimax_model_fitted.predict(test_size, return_conf_int = True)
+
+
+    fig, ax = plt.subplots(figsize=(18, 8))
+    ax.set_xlabel("Year")
+    ax.set_ylabel("Temperature C°")
+    ax.xaxis.set_major_locator(mdates.YearLocator())
+    ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
+    ax.grid(axis='x', color='gray', linestyle='--', linewidth=0.5, alpha=0.5)
+
+    ax.plot(dataset[PragaDate], dataset[DAILY_TMAX], label='dataset', alpha=0.7)
+    ax.plot(dataset[PragaDate], sarimax_model_forecast, label='sarima forecast', alpha=0.7)
+
+    ax.legend()
+
+    # LSTM / MLP + Boost / Forest
+
+    plt.show(block=True)
