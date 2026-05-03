@@ -1,7 +1,9 @@
+import os.path
+
 import torch.nn as nn
 from pandas.core.interchange.dataframe_protocol import DataFrame
 from scipy import stats
-from statsmodels.tsa.statespace.sarimax import SARIMAX
+from statsmodels.tsa.statespace.sarimax import SARIMAX, SARIMAXResults
 from sympy.abc import alpha
 from xgboost import XGBRegressor
 from sklearn.ensemble import RandomForestRegressor
@@ -16,7 +18,7 @@ import pandas as pd
 import torch
 import random
 import pmdarima as pm
-from statsmodels.tsa.arima.model import ARIMA
+from statsmodels.tsa.arima.model import ARIMA, ARIMAResults
 from statsmodels.tsa.stattools import adfuller
 from scipy.stats import kstest, probplot, shapiro
 import matplotlib.dates as mdates
@@ -43,6 +45,7 @@ if __name__ == "__main__":
     DAILY_TMIN = 'DAILY_TMIN'
     DAILY_TMAX = 'DAILY_TMAX'
     DAILY_PREC = 'DAILY_PREC'
+    W_MOND = 'W-MON'
     features = [DAILY_TMIN, DAILY_TMAX, DAILY_PREC]
 
     DAILY_TMIN_OUTLIER = DAILY_TMIN + '_outlier'
@@ -56,13 +59,14 @@ if __name__ == "__main__":
 
     dataset[PragaDate] = pd.to_datetime(dataset[PragaDate])
     TOTAL_YEARS = int(len(dataset) / DAYS_IN_A_YEAR)
+    TOTAL_WEEKS = int(len(dataset) / WEEKS_IN_A_YEAR)
 
     daily_dataset = dataset
 
     dataset = (
         dataset
         .set_index(PragaDate)
-        .resample("W-MON")[features]
+        .resample(W_MOND)[features]
         .mean()
         .reset_index()
     )
@@ -152,40 +156,47 @@ if __name__ == "__main__":
 
         # This method needs stationarity that will be checked with Augumented Dickey Fuller test
         # adf = adfuller(train[DAILY_TMAX].dropna())
+        #
+        # auto_model = pm.auto_arima(train[DAILY_TMAX],
+        #                         test='adf',
+        #                         # exogenous=train[[DAILY_TMIN]],
+        #                         seasonal=True, m=WEEKS_IN_A_YEAR,
+        #                         max_p=3, max_q=3, max_P=2, max_Q=2,
+        #                         stepwise=True, trace=True)
+        # print(auto_model.order)
+        # print(auto_model.seasonal_order)
+        # Best model: ARIMA(3,0,1)(2,0,0)[52] intercept
+        # Total fit time: 751.500 seconds
+        # (3, 0, 1)
+        # (2, 0, 0, 52)
 
-        auto_model = pm.auto_arima(train[DAILY_TMAX],
-                                test='adf',
-                                # exogenous=train[[DAILY_TMIN]],
-                                seasonal=True, m=WEEKS_IN_A_YEAR,
-                                max_p=3, max_q=3, max_P=2, max_Q=2,
-                                stepwise=True, trace=True)
+        p, d, q = (3,1,1) # auto_model.order
+        # There is a strong seasonality correlation so d D = 1
+        P, D, Q, s = (1,1,0,WEEKS_IN_A_YEAR) #auto_model.seasonal_order
 
-        p, d, q = auto_model.order
-        P, D, Q, s = auto_model.seasonal_order
+        if os.path.exists('sarimax.pkl'):
+            print("Loaded sarimax model from file")
+            sarimax_model_fitted = SARIMAXResults.load('sarimax.pkl')
+        else:
+            sarimax_model = SARIMAX(train[DAILY_TMAX],
+                                    order=(p, d, q),
+                                    seasonal_order=(P, D, Q, s))
 
-        print(auto_model.order)
-        print(auto_model.seasonal_order)
+            sarimax_model_fitted = sarimax_model.fit(disp=False)
+            print("Saved sarimax model to file: sarimax.pkl")
+            sarimax_model_fitted.save('sarimax.pkl')
 
-        sarimax_model = SARIMAX(train[DAILY_TMAX],
-                                # exog=train[[DAILY_TMIN]],
-                                order=(p, d, q),
-                                seasonal_order=(P, D, Q, s)).fit()
-
-        sarimax_model_fitted = sarimax_model.fit(disp=False)
-
-        sarimax_model_fitted.save('sarimax.pkl')
-
-        sarimax_model_forecast = sarimax_model_fitted.get_forecast(steps=test_size)
+        n_forecast = test_size
+        in_sample = sarimax_model_fitted.fittedvalues
+        out_of_sample = sarimax_model_fitted.get_forecast(steps=n_forecast).predicted_mean
+        full_forecast = pd.concat([in_sample, out_of_sample])
 
         fig, ax = plt.subplots(figsize=(18, 8))
-        ax.set_xlabel("Year")
+        ax.set_xlabel("Week")
         ax.set_ylabel("Temperature C°")
-        ax.xaxis.set_major_locator(mdates.YearLocator())
-        ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
-        ax.grid(axis='x', color='gray', linestyle='--', linewidth=0.5, alpha=0.5)
-
-        ax.plot(dataset_indexed.index, dataset_indexed[DAILY_TMAX], label='dataset', alpha=0.7)
-        ax.plot(sarimax_model_forecast.index, sarimax_model_forecast, label='SARIMAX forecast', alpha=0.7)
+        ax.plot(range(len(dataset_indexed)), dataset_indexed[DAILY_TMAX], label='Actual', alpha=0.7)
+        ax.plot(range(len(full_forecast)), full_forecast.values, label='SARIMAX forecast', alpha=0.7)
+        ax.axvline(x=len(train), color='red', linestyle='--', label='Train/Test split')
 
         ax.legend()
         plt.xticks(rotation=45)
