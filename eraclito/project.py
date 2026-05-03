@@ -50,12 +50,22 @@ if __name__ == "__main__":
     DAILY_PREC_OUTLIER = DAILY_PREC + '_outlier'
 
     DAYS_IN_A_YEAR = 365
+    WEEKS_IN_A_YEAR = 52
 
     dataset = pd.read_csv("combined.csv")
 
     dataset[PragaDate] = pd.to_datetime(dataset[PragaDate])
     TOTAL_YEARS = int(len(dataset) / DAYS_IN_A_YEAR)
 
+    daily_dataset = dataset
+
+    dataset = (
+        dataset
+        .set_index(PragaDate)
+        .resample("W-MON")[features]
+        .mean()
+        .reset_index()
+    )
 
     dataset_description = dataset.drop(columns=[PragaDate]).describe()
 
@@ -64,27 +74,26 @@ if __name__ == "__main__":
     print("Check for normal distribution of data using the Wilk-Shapiro test")
     for feature in features:
         # Check for normal distribution of data using the Wilk-Shapiro test
-        # Shapiro fails for datasets greater than 5000 entries
-        _, p = shapiro(dataset[feature].dropna().values[:5000])
+        _, p = shapiro(dataset[feature].dropna())
 
         print(f"feature {feature}, p: {p}")
         normally_distributed = "" if p > 0.05 else "Not "
-        print(f'\t{normally_distributed}normally distributed ({not normally_distributed}refusing Null Hypothesis)')
+        print(f'\t{normally_distributed}normally distributed ({"" if p<0.05 else normally_distributed}refusing Null Hypothesis)')
 
     # No feature is normally Distributed
-    # feature DAILY_TMIN, p: 1.923672196823777e-30
-    # 	Not normally distributed (Not refusing Null Hypothesis)
-    # feature DAILY_TMAX, p: 5.3386025074974396e-31
-    # 	Not normally distributed (Not refusing Null Hypothesis)
-    # feature DAILY_PREC, p: 2.644783558246927e-85
-    # 	Not normally distributed (Not refusing Null Hypothesis)
+    # feature DAILY_TMIN, p: 2.3353398457236163e-18
+    # 	Not normally distributed (refusing Null Hypothesis)
+    # feature DAILY_TMAX, p: 2.9995702681637455e-18
+    # 	Not normally distributed (refusing Null Hypothesis)
+    # feature DAILY_PREC, p: 4.76318265914823e-44
+    # 	Not normally distributed (refusing Null Hypothesis)
 
     # Finding outliers using IQR method, since no feature is normally distributed
     # Outliers must be found within individual months, since temperature values cannot be compared across months
     # July's temperature cannot be compared as an outlier of January
-    dataset[DAILY_TMAX_OUTLIER] = dataset.groupby(dataset[PragaDate].dt.month)[DAILY_TMAX].transform(iqr_outliers)
-    dataset[DAILY_TMIN_OUTLIER] = dataset.groupby(dataset[PragaDate].dt.month)[DAILY_TMIN].transform(iqr_outliers)
-    # dataset[DAILY_PREC_OUTLIER] = dataset.groupby(dataset[PragaDate].dt.month)[DAILY_PREC].transform(iqr_outliers)
+    daily_dataset[DAILY_TMAX_OUTLIER] = daily_dataset.groupby(daily_dataset[PragaDate].dt.month)[DAILY_TMAX].transform(iqr_outliers)
+    daily_dataset[DAILY_TMIN_OUTLIER] = daily_dataset.groupby(daily_dataset[PragaDate].dt.month)[DAILY_TMIN].transform(iqr_outliers)
+    # daily_dataset[DAILY_PREC_OUTLIER] = daily_dataset.groupby(daily_dataset[PragaDate].dt.month)[DAILY_PREC].transform(iqr_outliers)
 
     # print(dataset[DAILY_TMAX][dataset[DAILY_TMAX_OUTLIER]])
     # print(dataset[DAILY_TMIN][dataset[DAILY_TMIN_OUTLIER]])
@@ -96,8 +105,8 @@ if __name__ == "__main__":
     ax.xaxis.set_major_locator(mdates.YearLocator())
     ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
     ax.grid(axis='x', color='gray', linestyle='--', linewidth=0.5, alpha=0.5)
-    ax.plot(dataset[PragaDate], dataset[DAILY_TMAX], label=DAILY_TMAX, color='orange', alpha=0.7)
-    outliers = dataset[dataset[DAILY_TMAX_OUTLIER]]
+    ax.plot(daily_dataset[PragaDate], daily_dataset[DAILY_TMAX], label=DAILY_TMAX, color='orange', alpha=0.7)
+    outliers = daily_dataset[daily_dataset[DAILY_TMAX_OUTLIER]]
     ax.scatter(outliers[PragaDate], outliers[DAILY_TMAX],
                color='red', s=10, zorder=5, label='tmax_outliers')
     ax.legend()
@@ -110,8 +119,8 @@ if __name__ == "__main__":
     ax.xaxis.set_major_locator(mdates.YearLocator())
     ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
     ax.grid(axis='x', color='gray', linestyle='--', linewidth=0.5, alpha=0.5)
-    ax.plot(dataset[PragaDate], dataset[DAILY_TMIN], label=DAILY_TMIN,color='blue', alpha=0.7)
-    outliers = dataset[dataset[DAILY_TMIN_OUTLIER]]
+    ax.plot(daily_dataset[PragaDate], daily_dataset[DAILY_TMIN], label=DAILY_TMIN,color='blue', alpha=0.7)
+    outliers = daily_dataset[daily_dataset[DAILY_TMIN_OUTLIER]]
     ax.scatter(outliers[PragaDate], outliers[DAILY_TMIN],
                color='red', s=10, zorder=5, label='tmin_outliers')
     ax.legend()
@@ -126,7 +135,7 @@ if __name__ == "__main__":
     ax.grid(axis='x', color='gray', linestyle='--', linewidth=0.5, alpha=0.5)
 
     for feature in [DAILY_TMIN, DAILY_TMAX]:
-        ax.plot(dataset[PragaDate], dataset[feature], label=feature, alpha=0.7)
+        ax.plot(daily_dataset[PragaDate], daily_dataset[feature], label=feature, alpha=0.7)
 
     ax.legend()
     plt.savefig('Tmax-Tmin_figure.png')
@@ -134,49 +143,55 @@ if __name__ == "__main__":
 
 
     # SARIMAX
+    if True:
+        split = 0.8
+        train_size = int(len(dataset) * split)
+        test_size = len(dataset) - train_size
+        dataset_indexed = dataset.set_index(PragaDate)
+        train, test = dataset_indexed[:train_size], dataset_indexed[train_size:]
 
-    split = 0.8
-    train_size = int(len(dataset) * split)
-    test_size = len(dataset) - train_size
+        # This method needs stationarity that will be checked with Augumented Dickey Fuller test
+        # adf = adfuller(train[DAILY_TMAX].dropna())
 
-    train, test = dataset[:train_size], dataset[train_size:]
+        auto_model = pm.auto_arima(train[DAILY_TMAX],
+                                test='adf',
+                                # exogenous=train[[DAILY_TMIN]],
+                                seasonal=True, m=WEEKS_IN_A_YEAR,
+                                max_p=3, max_q=3, max_P=2, max_Q=2,
+                                stepwise=True, trace=True)
 
-    # This method needs stationarity that will be checked with Augumented Dickey Fuller test
-    # adf = adfuller(train[DAILY_TMAX].dropna())
+        p, d, q = auto_model.order
+        P, D, Q, s = auto_model.seasonal_order
 
-    auto_model = pm.auto_arima(train[DAILY_TMAX],
-                            test='adf',
-                            exogenous=train[[DAILY_TMIN]],
-                            seasonal=True, m=365,
-                            max_p=3, max_q=3, max_P=2, max_Q=2,
-                            stepwise=True, trace=True)
+        print(auto_model.order)
+        print(auto_model.seasonal_order)
 
-    p, d, q = auto_model.order
-    P, D, Q, s = auto_model.seasonal_order
+        sarimax_model = SARIMAX(train[DAILY_TMAX],
+                                # exog=train[[DAILY_TMIN]],
+                                order=(p, d, q),
+                                seasonal_order=(P, D, Q, s)).fit()
 
-    print(auto_model.order)
-    print(auto_model.seasonal_order)
+        sarimax_model_fitted = sarimax_model.fit(disp=False)
 
-    sarimax_model = SARIMAX(train[DAILY_TMAX],
-                            exog=train[[DAILY_TMIN]],
-                            order=(p, d, q),
-                            seasonal_order=(P, D, Q, s)).fit()
+        sarimax_model_fitted.save('sarimax.pkl')
 
-    sarimax_model_fitted = sarimax_model.fit(train[DAILY_TMAX])
-    sarimax_model_forecast, sarimax_model_confidence = sarimax_model_fitted.predict(test_size, return_conf_int = True)
+        sarimax_model_forecast = sarimax_model_fitted.get_forecast(steps=test_size)
 
+        fig, ax = plt.subplots(figsize=(18, 8))
+        ax.set_xlabel("Year")
+        ax.set_ylabel("Temperature C°")
+        ax.xaxis.set_major_locator(mdates.YearLocator())
+        ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
+        ax.grid(axis='x', color='gray', linestyle='--', linewidth=0.5, alpha=0.5)
 
-    fig, ax = plt.subplots(figsize=(18, 8))
-    ax.set_xlabel("Year")
-    ax.set_ylabel("Temperature C°")
-    ax.xaxis.set_major_locator(mdates.YearLocator())
-    ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
-    ax.grid(axis='x', color='gray', linestyle='--', linewidth=0.5, alpha=0.5)
+        ax.plot(dataset_indexed.index, dataset_indexed[DAILY_TMAX], label='dataset', alpha=0.7)
+        ax.plot(sarimax_model_forecast.index, sarimax_model_forecast, label='SARIMAX forecast', alpha=0.7)
 
-    ax.plot(dataset[PragaDate], dataset[DAILY_TMAX], label='dataset', alpha=0.7)
-    ax.plot(dataset[PragaDate], sarimax_model_forecast, label='sarima forecast', alpha=0.7)
-
-    ax.legend()
+        ax.legend()
+        plt.xticks(rotation=45)
+        plt.tight_layout()
+        plt.savefig('Sarimax_figure.png')
+        print("Saved plot to file: Sarimax_figure.png")
 
     # LSTM / MLP + Boost / Forest
 
