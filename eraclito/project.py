@@ -1,28 +1,21 @@
 import os.path
+import random
 
-import torch.nn as nn
-from pandas.core.interchange.dataframe_protocol import DataFrame
-from scipy import stats
-from statsmodels.tsa.statespace.sarimax import SARIMAX, SARIMAXResults
-from sympy.abc import alpha
-from torch.utils.data import DataLoader, Dataset
-from xgboost import XGBRegressor
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.feature_selection import RFE
-from sklearn.metrics import mean_absolute_error
-from sklearn.metrics import root_mean_squared_error
-import torch.optim as optim
-from sklearn.preprocessing import MinMaxScaler, StandardScaler
+import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import numpy as np
+import optuna
 import pandas as pd
 import torch
-import random
-import pmdarima as pm
-from statsmodels.tsa.arima.model import ARIMA, ARIMAResults
-from statsmodels.tsa.stattools import adfuller
-from scipy.stats import kstest, probplot, shapiro
-import matplotlib.dates as mdates
+import torch.nn as nn
+import torch.optim as optim
+from scipy.stats import shapiro
+from sklearn.metrics import mean_squared_error
+from sklearn.metrics import root_mean_squared_error
+from sklearn.preprocessing import StandardScaler
+from statsmodels.tsa.statespace.sarimax import SARIMAX, SARIMAXResults
+from torch.utils.data import DataLoader, Dataset
+from xgboost import XGBRegressor
 
 
 def set_seed(seed=42):
@@ -65,6 +58,57 @@ class EraclitoMLP(nn.Module):
 
     def forward(self, x):
         return self.net(x)
+
+def xgb_regressor(X_train, Y_train, X_valid, Y_valid):
+    def objective(trial):
+        params = {
+            "objective": "reg:squarederror",
+            "eval_metric": "rmse",
+            "booster": "gbtree",
+            "n_estimators": trial.suggest_int("n_estimators", 100, 800),
+            "max_depth": trial.suggest_int("max_depth", 2, 8),
+            "learning_rate": trial.suggest_float("learning_rate", 1e-3, 0.2, log=True),
+            "min_child_weight": trial.suggest_int("min_child_weight", 1, 10),
+            "subsample": trial.suggest_float("subsample", 0.6, 1.0),
+            "colsample_bytree": trial.suggest_float("colsample_bytree", 0.6, 1.0),
+            "gamma": trial.suggest_float("gamma", 1e-8, 5.0, log=True),
+            "reg_alpha": trial.suggest_float("reg_alpha", 1e-8, 5.0, log=True),
+            "reg_lambda": trial.suggest_float("reg_lambda", 1e-8, 5.0, log=True),
+            "random_state": 42,
+        }
+        model = XGBRegressor(**params)
+        model.fit(X_train, Y_train, eval_set=[(X_valid, Y_valid)], verbose=False, )
+        pred_valid = model.predict(X_valid)
+        rmse = np.sqrt(mean_squared_error(Y_valid, pred_valid))
+        return rmse
+
+    study = optuna.create_study(direction="minimize")
+    study.optimize(objective, n_trials=50)
+    print("Best RMSE:", study.best_value)
+    print("Best params:")
+    for k, v in study.best_params.items():
+        print(f" {k}: {v}")
+
+    # Fit final model on train+valid
+    best_model = XGBRegressor(
+        objective="reg:squarederror",
+        eval_metric="rmse",
+        booster="gbtree",
+        random_state=42,
+        **study.best_params)
+
+    return best_model
+
+def sliding_forecast(model, last_window, horizon):
+    window = last_window.copy()
+    preds = []
+    for _ in range(horizon):
+        next_pred = model.predict(window.reshape(1, -1))[0]
+        preds.append(next_pred)
+        window = np.roll(window, -1)
+        window[-1] = next_pred
+    return np.array(preds)
+
 
 if __name__ == "__main__":
     set_seed()
@@ -341,8 +385,92 @@ if __name__ == "__main__":
         plt.savefig('MLP_figure.png')
         print("Saved plot to file: MLP_figure.png")
 
-    # XGBoost / RandomForest
-    if True:
+    # Optuna + (XGBoost / RandomForest)
+    if False:
+        dataset_indexed = dataset.set_index(PragaDate)
+
+        lags = [
+            1, 2, 3, 4,
+            WEEKS_IN_A_YEAR, WEEKS_IN_A_YEAR * 2,
+                             WEEKS_IN_A_YEAR * 3, WEEKS_IN_A_YEAR * 4
+        ]
+        DAILY_TMAX_LAG = 'TMAX_lag_'
+        DAILY_TMIN_LAG = 'TMIN_lag_'
+        DAILY_PREC_LAG = 'PREC_lag_'
+
+        features = []
+        for lag in lags:
+            dataset_indexed[f'{DAILY_TMAX_LAG}{lag}'] = dataset_indexed[DAILY_TMAX].shift(lag)
+            dataset_indexed[f'{DAILY_TMIN_LAG}{lag}'] = dataset_indexed[DAILY_TMIN].shift(lag)
+            dataset_indexed[f'{DAILY_PREC_LAG}{lag}'] = dataset_indexed[DAILY_PREC].shift(lag)
+
+            features.append(f'{DAILY_TMAX_LAG}{lag}')
+            features.append(f'{DAILY_TMIN_LAG}{lag}')
+            features.append(f'{DAILY_PREC_LAG}{lag}')
+
+        target = DAILY_TMAX
+
+        week = dataset_indexed.index.isocalendar().week.astype(float)
+        dataset_indexed['sin_week'] = np.sin(2 * np.pi * week / 52)
+        dataset_indexed['cos_week'] = np.cos(2 * np.pi * week / 52)
+
+        features.append('sin_week')
+        features.append('cos_week')
+        dataset_indexed = dataset_indexed.dropna()
+
+        train_split, test_split = 0.85, 0.15
+        validation_split = 0.15
+
+        train_size = int(len(dataset_indexed) * train_split)
+        test_size = len(dataset_indexed) - train_size
+        validation_size = int(len(dataset_indexed) * validation_split)
+        train_size = train_size - validation_size
+
+
+        train = dataset_indexed[:train_size]
+        validation = dataset_indexed[train_size:train_size+validation_size]
+        test = dataset_indexed[train_size+validation_size:]
+
+
+        X_train = train[features]
+        Y_train = train[[target]]
+
+        X_valid = validation[features]
+        Y_valid = validation[[target]]
+
+        X_test = test[features]
+        Y_test = test[[target]]
+
+        if os.path.exists('xbg_model.json'):
+            model = XGBRegressor()
+            print("Loaded XGB model from file")
+            model.load_model('xbg_model.json')
+        else:
+            model = xgb_regressor(X_train, Y_train, X_valid, Y_valid)
+
+            X_train_fit = dataset_indexed[:train_size + validation_size][features]
+            Y_train_fit = dataset_indexed[:train_size + validation_size][[target]]
+
+            model.fit(X_train_fit, Y_train_fit, verbose=True)
+
+            print("Saved XGB model to file: xbg_model.json")
+            model.save_model("xbg_model.json")
+
+        Y_forecast = model.predict(dataset_indexed[features])
+
+        rmse = root_mean_squared_error(test[target].values, Y_forecast[-test_size:])
+        print(f"Final Boost RMSE: {rmse}")
+
+        fig, ax = plt.subplots(figsize=(18, 8))
+        ax.plot(dataset_indexed[target].values, label='Actual', alpha=0.7)
+        ax.plot(Y_forecast, label='MLP forecast', alpha=0.7)
+        ax.axvline(x=train_size+validation_size, color='red', linestyle='--', label='Train/Test split')
+        ax.set_xlabel("Week")
+        ax.set_ylabel("Temperature C°")
+        ax.legend()
+        plt.tight_layout()
+        plt.savefig('Boost_figure.png')
+        print("Saved plot to file: Boost_figure.png")
 
         pass
 
