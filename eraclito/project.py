@@ -143,7 +143,7 @@ if __name__ == "__main__":
         .reset_index()
     )
 
-    if False:
+    if True:
 
         dataset_description = dataset.drop(columns=[PragaDate]).describe()
 
@@ -178,6 +178,7 @@ if __name__ == "__main__":
         # print(dataset[DAILY_PREC][dataset[DAILY_PREC_OUTLIER]])
 
         fig, ax = plt.subplots(figsize=(18, 8))
+        ax.set_title("TMAX_OUTLIERS")
         ax.set_xlabel("Year")
         ax.set_ylabel("Temperature C°")
         ax.xaxis.set_major_locator(mdates.YearLocator())
@@ -192,6 +193,7 @@ if __name__ == "__main__":
         print("Saved plot to file: Tmax_outliers.png")
 
         fig, ax = plt.subplots(figsize=(18, 8))
+        ax.set_title("TMIN_OUTLIERS")
         ax.set_xlabel("Year")
         ax.set_ylabel("Temperature C°")
         ax.xaxis.set_major_locator(mdates.YearLocator())
@@ -206,6 +208,7 @@ if __name__ == "__main__":
         print("Saved plot to file: Tmin_outliers.png")
 
         fig, ax = plt.subplots(figsize=(18, 8))
+        ax.set_title("Dataset")
         ax.set_xlabel("Year")
         ax.set_ylabel("Temperature C°")
         ax.xaxis.set_major_locator(mdates.YearLocator())
@@ -221,7 +224,7 @@ if __name__ == "__main__":
 
 
     # SARIMAX
-    if False:
+    if True:
         split = 0.8
         train_size = int(len(dataset) * split)
         test_size = len(dataset) - train_size
@@ -266,6 +269,7 @@ if __name__ == "__main__":
         full_forecast = pd.concat([in_sample, out_of_sample])
 
         fig, ax = plt.subplots(figsize=(18, 8))
+        ax.set_title("SARIMAX")
         ax.set_xlabel("Week")
         ax.set_ylabel("Temperature C°")
         ax.plot(range(len(dataset_indexed)), dataset_indexed[DAILY_TMAX], label='Actual', alpha=0.7)
@@ -377,6 +381,7 @@ if __name__ == "__main__":
         actual = dataset_indexed[target].values
 
         fig, ax = plt.subplots(figsize=(18, 8))
+        ax.set_title("MLP")
         ax.plot(actual, label='Actual', alpha=0.7)
         ax.plot(full_pred, label='MLP forecast', alpha=0.7)
         ax.axvline(x=len(train), color='red', linestyle='--', label='Train/Test split')
@@ -388,7 +393,7 @@ if __name__ == "__main__":
         print("Saved plot to file: MLP_figure.png")
 
     # Optuna + (XGBoost / RandomForest)
-    if False:
+    if True:
         dataset_indexed = dataset.set_index(PragaDate)
 
         lags = [
@@ -464,8 +469,9 @@ if __name__ == "__main__":
         print(f"Final Boost RMSE: {rmse}")
 
         fig, ax = plt.subplots(figsize=(18, 8))
+        ax.set_title("XGBoost")
         ax.plot(dataset_indexed[target].values, label='Actual', alpha=0.7)
-        ax.plot(Y_forecast, label='MLP forecast', alpha=0.7)
+        ax.plot(Y_forecast, label='Xgboost forecast', alpha=0.7)
         ax.axvline(x=train_size+validation_size, color='red', linestyle='--', label='Train/Test split')
         ax.set_xlabel("Week")
         ax.set_ylabel("Temperature C°")
