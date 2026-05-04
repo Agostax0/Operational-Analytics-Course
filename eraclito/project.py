@@ -279,7 +279,7 @@ if __name__ == "__main__":
         print("Saved plot to file: Sarimax_figure.png")
 
     # LSTM / MLP
-    if False:
+    if True:
         dataset_indexed = dataset.set_index(PragaDate)
 
         lags = [
@@ -298,6 +298,8 @@ if __name__ == "__main__":
             dataset_indexed[f'{DAILY_PREC_LAG}{lag}'] = dataset_indexed[DAILY_PREC].shift(lag)
 
             features.append(f'{DAILY_TMAX_LAG}{lag}')
+            features.append(f'{DAILY_TMIN_LAG}{lag}')
+            features.append(f'{DAILY_PREC_LAG}{lag}')
 
         target = DAILY_TMAX
 
