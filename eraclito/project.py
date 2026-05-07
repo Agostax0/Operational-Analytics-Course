@@ -16,7 +16,7 @@ from sklearn.preprocessing import StandardScaler
 from statsmodels.tsa.statespace.sarimax import SARIMAX, SARIMAXResults
 from torch.utils.data import DataLoader, Dataset
 from xgboost import XGBRegressor
-
+from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
 from dm_test import dm_test
 
 def set_seed(seed=42):
@@ -113,6 +113,10 @@ def sliding_forecast(model, last_window, horizon):
 
 if __name__ == "__main__":
     set_seed()
+
+    flag_SARIMAX = False
+    flag_MLP = False
+    flag_XGBOOST = False
 
     PragaDate = 'PragaDate'
     DAILY_TMIN = 'DAILY_TMIN'
@@ -223,9 +227,20 @@ if __name__ == "__main__":
         plt.savefig('Tmax-Tmin_figure.png')
         print("Saved plot to file: Tmax-Tmin_figure.png")
 
+    # Correlogram
+    if True:
+        dataset_indexed = dataset.set_index(PragaDate)
+        fig, axes = plt.subplots(figsize=(18, 8))
+
+        plot_acf(dataset_indexed[DAILY_TMAX], lags=52*8, ax=axes[0], alpha=0.05)
+
+        axes[0].set_title('ACF — Tmax (8 years of lags)')
+        plt.savefig('Tmax_correlogram.png')
+        print("Saved plot to file: Tmax_correlogram.png")
+        pass
 
     # SARIMAX
-    if True:
+    if flag_SARIMAX:
         split = 0.85
         train_size = int(len(dataset) * split)
         test_size = len(dataset) - train_size
@@ -287,7 +302,7 @@ if __name__ == "__main__":
         sarimax_prediction = full_forecast[-test_size:]
 
     # LSTM / MLP
-    if True:
+    if flag_MLP:
         dataset_indexed = dataset.set_index(PragaDate)
 
         lags = [
@@ -396,7 +411,7 @@ if __name__ == "__main__":
         mlp_prediction = np.array(test_pred).flatten()
 
     # Optuna + (XGBoost / RandomForest)
-    if True:
+    if flag_XGBOOST:
         dataset_indexed = dataset.set_index(PragaDate)
 
         lags = [
@@ -488,7 +503,7 @@ if __name__ == "__main__":
         pass
 
     # Diebol mariano
-    if True:
+    if flag_SARIMAX and flag_XGBOOST and flag_MLP:
         sarimax_rmse = root_mean_squared_error(sarimax_test, sarimax_prediction)
         print(f"Sarimax RMSE: {sarimax_rmse}")
 
@@ -500,28 +515,28 @@ if __name__ == "__main__":
 
         test = dataset_indexed[-test_size:][DAILY_TMAX]
 
-        if True:
+        if flag_SARIMAX and flag_XGBOOST:
             rt = dm_test(test, sarimax_prediction[-test_size:], xgbboost_prediction[-test_size:],crit='MSE')
             ho = np.abs(rt[1]) < 0.025
             print(f"Null Hypothesis between SARIMAX and XGBOOST approach (False = models are not statistically equivalent): {ho}")
             # Null Hypothesis between SARIMAX and XGBOOST approach (False = models are not statistically equivalent): True
             pass
 
-        if True:
+        if flag_MLP and flag_XGBOOST:
             rt = dm_test(test, mlp_prediction[-test_size:], xgbboost_prediction[-test_size:], crit='MSE')
             ho = np.abs(rt[1]) < 0.025
             print(f"Null Hypothesis between MLP and XGBOOST approach (False = models are not statistically equivalent): {ho}")
             # Null Hypothesis between MLP and XGBOOST approach (False = models are not statistically equivalent): True
             pass
 
-        if True:
+        if flag_SARIMAX and flag_MLP:
             rt = dm_test(test, sarimax_prediction[-test_size:], mlp_prediction[-test_size:], crit='MSE')
             ho = np.abs(rt[1]) < 0.025
             print(f"Null Hypothesis between SARIMAX and MLP approach (False = models are not statistically equivalent): {ho}")
             # Null Hypothesis between SARIMAX and MLP approach (False = models are not statistically equivalent): False
             pass
 
-    if True:
+    if flag_SARIMAX and flag_MLP and flag_XGBOOST:
         display = [test_size + i for i in range(test_size)]
 
         fig, ax = plt.subplots(figsize=(18, 8))
