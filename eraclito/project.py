@@ -504,18 +504,21 @@ if __name__ == "__main__":
             rt = dm_test(test, sarimax_prediction[-test_size:], xgbboost_prediction[-test_size:],crit='MSE')
             ho = np.abs(rt[1]) < 0.025
             print(f"Null Hypothesis between SARIMAX and XGBOOST approach (False = models are not statistically equivalent): {ho}")
+            # Null Hypothesis between SARIMAX and XGBOOST approach (False = models are not statistically equivalent): True
             pass
 
         if True:
             rt = dm_test(test, mlp_prediction[-test_size:], xgbboost_prediction[-test_size:], crit='MSE')
             ho = np.abs(rt[1]) < 0.025
             print(f"Null Hypothesis between MLP and XGBOOST approach (False = models are not statistically equivalent): {ho}")
+            # Null Hypothesis between MLP and XGBOOST approach (False = models are not statistically equivalent): True
             pass
 
         if True:
             rt = dm_test(test, sarimax_prediction[-test_size:], mlp_prediction[-test_size:], crit='MSE')
             ho = np.abs(rt[1]) < 0.025
             print(f"Null Hypothesis between SARIMAX and MLP approach (False = models are not statistically equivalent): {ho}")
+            # Null Hypothesis between SARIMAX and MLP approach (False = models are not statistically equivalent): False
             pass
 
     if True:
