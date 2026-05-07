@@ -17,6 +17,7 @@ from statsmodels.tsa.statespace.sarimax import SARIMAX, SARIMAXResults
 from torch.utils.data import DataLoader, Dataset
 from xgboost import XGBRegressor
 
+from dm_test import dm_test
 
 def set_seed(seed=42):
     random.seed(seed)
@@ -225,7 +226,7 @@ if __name__ == "__main__":
 
     # SARIMAX
     if True:
-        split = 0.8
+        split = 0.85
         train_size = int(len(dataset) * split)
         test_size = len(dataset) - train_size
         dataset_indexed = dataset.set_index(PragaDate)
@@ -281,6 +282,9 @@ if __name__ == "__main__":
         plt.tight_layout()
         plt.savefig('Sarimax_figure.png')
         print("Saved plot to file: Sarimax_figure.png")
+
+        sarimax_test = dataset_indexed[DAILY_TMAX][-test_size:]
+        sarimax_prediction = full_forecast[-test_size:]
 
     # LSTM / MLP
     if True:
@@ -356,8 +360,8 @@ if __name__ == "__main__":
                     loss = loss_fn(pred, Y_batch)
                     loss.backward()
                     optimizer.step()
-                    if epoch % 10 == 0:
-                        print(f'Finished epoch {epoch}, latest loss {loss}')
+                if epoch % 10 == 0:
+                    print(f'Finished epoch {epoch}, latest loss {loss}')
 
             print("Saved MLP model to file: best_mlp.pt")
             torch.save(model.state_dict(), 'best_mlp.pt')
@@ -373,10 +377,6 @@ if __name__ == "__main__":
                 model(torch.tensor(X_test, dtype=torch.float32)).numpy()
             )
 
-        rmse = root_mean_squared_error(test[target].values, test_pred)
-
-        print(f"Final MPL RMSE: {rmse}")
-
         full_pred = np.concatenate([train_pred, test_pred])
         actual = dataset_indexed[target].values
 
@@ -391,6 +391,9 @@ if __name__ == "__main__":
         plt.tight_layout()
         plt.savefig('MLP_figure.png')
         print("Saved plot to file: MLP_figure.png")
+
+        mlp_test = test[target].values
+        mlp_prediction = np.array(test_pred).flatten()
 
     # Optuna + (XGBoost / RandomForest)
     if True:
@@ -480,6 +483,55 @@ if __name__ == "__main__":
         plt.savefig('Boost_figure.png')
         print("Saved plot to file: Boost_figure.png")
 
+        xgbboost_test = test[target].values
+        xgbboost_prediction = Y_forecast[-test_size:]
         pass
+
+    # Diebol mariano
+    if True:
+        sarimax_rmse = root_mean_squared_error(sarimax_test, sarimax_prediction)
+        print(f"Sarimax RMSE: {sarimax_rmse}")
+
+        mlp_rmse = root_mean_squared_error(mlp_test, mlp_prediction)
+        print(f"Final MPL RMSE: {mlp_rmse}")
+
+        boost_rmse = root_mean_squared_error(xgbboost_test, xgbboost_prediction)
+        print(f"Final Boost RMSE: {boost_rmse}")
+
+        test = dataset_indexed[-test_size:][DAILY_TMAX]
+
+        if True:
+            rt = dm_test(test, sarimax_prediction[-test_size:], xgbboost_prediction[-test_size:],crit='MSE')
+            ho = np.abs(rt[1]) < 0.025
+            print(f"Null Hypothesis between SARIMAX and XGBOOST approach (False = models are not statistically equivalent): {ho}")
+            pass
+
+        if True:
+            rt = dm_test(test, mlp_prediction[-test_size:], xgbboost_prediction[-test_size:], crit='MSE')
+            ho = np.abs(rt[1]) < 0.025
+            print(f"Null Hypothesis between MLP and XGBOOST approach (False = models are not statistically equivalent): {ho}")
+            pass
+
+        if True:
+            rt = dm_test(test, sarimax_prediction[-test_size:], mlp_prediction[-test_size:], crit='MSE')
+            ho = np.abs(rt[1]) < 0.025
+            print(f"Null Hypothesis between SARIMAX and MLP approach (False = models are not statistically equivalent): {ho}")
+            pass
+
+    if True:
+        display = [test_size + i for i in range(test_size)]
+
+        fig, ax = plt.subplots(figsize=(18, 8))
+        ax.set_title("Model Predictions")
+        ax.plot(display, test, label='Actual', alpha=0.7)
+        ax.plot(display, sarimax_prediction[-test_size:], label='Sarimax prediction', alpha=0.7)
+        ax.plot(display, xgbboost_prediction, label='Xgboost prediction', alpha=0.7)
+        ax.plot(display, mlp_prediction, label='MLP prediction', alpha=0.7)
+        ax.set_xlabel("Week")
+        ax.set_ylabel("Temperature C°")
+        ax.legend()
+        plt.tight_layout()
+        plt.savefig('Models_figure.png')
+        print("Saved plot to file: Models_figure.png")
 
     plt.show(block=True)
