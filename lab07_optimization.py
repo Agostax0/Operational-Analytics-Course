@@ -1,4 +1,5 @@
 import matplotlib.pyplot
+import numpy as np
 import pandas as pd
 from statsmodels.tsa.statespace.sarimax import SARIMAX
 
@@ -49,25 +50,36 @@ if __name__ == '__main__':
     val_size = len(series_array[0].values)
     test_size = 3
 
-    train = series_array[0].iloc[:val_size-test_size]['val']
+    train : list[list[pd.DataFrame]] = []
+
+    for serie in series_array:
+        train.append(serie.iloc[:val_size - test_size]['val'])
 
     exog = []
     for i in range(len(series_array)):
         exog.append(series_array[i].iloc[:val_size-test_size]['val'])
 
+    export = pd.DataFrame()
 
-    sarimax_model = SARIMAX(train,
-                            order=(p, d, q),
-                            seasonal_order=(P, D, Q, s))
+    for i,serie in enumerate(train):
 
-    sarimax_model_fitted = sarimax_model.fit(disp=False)
+        sarimax_model = SARIMAX(serie,
+                                order=(p, d, q),
+                                seasonal_order=(P, D, Q, s))
 
-    n_forecast = test_size
-    in_sample = sarimax_model_fitted.fittedvalues
-    out_of_sample = sarimax_model_fitted.get_forecast(steps=n_forecast).predicted_mean
-    full_forecast = pd.concat([in_sample, out_of_sample])
+        sarimax_model_fitted = sarimax_model.fit(disp=False)
+
+        n_forecast = test_size
+        in_sample = sarimax_model_fitted.fittedvalues
+        out_of_sample = sarimax_model_fitted.get_forecast(steps=n_forecast).predicted_mean
+        full_forecast = pd.concat([in_sample, out_of_sample])
+
+        matplotlib.pyplot.plot(full_forecast, linestyle='--', label='Forecast')
 
 
+        export[str(i)] = full_forecast[-1:]
+
+    export.to_csv('predizioni.csv')
 
     for i in range(len(series_array)-1):
         matplotlib.pyplot.plot(series_array[i].iloc[:val_size-test_size]['val'])
@@ -75,7 +87,6 @@ if __name__ == '__main__':
 
     matplotlib.pyplot.plot(series_array[len(series_array)-1]['val'], label='test')
 
-    matplotlib.pyplot.plot(full_forecast, linestyle='--', label='Forecast')
 
     matplotlib.pyplot.legend()
 
