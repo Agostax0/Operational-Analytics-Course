@@ -16,7 +16,7 @@ from sklearn.preprocessing import StandardScaler
 from statsmodels.tsa.statespace.sarimax import SARIMAX, SARIMAXResults
 from torch.utils.data import DataLoader, Dataset
 from xgboost import XGBRegressor
-from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
+from statsmodels.graphics.tsaplots import plot_acf
 from dm_test import dm_test
 
 def set_seed(seed=42):
@@ -230,11 +230,12 @@ if __name__ == "__main__":
     # Correlogram
     if True:
         dataset_indexed = dataset.set_index(PragaDate)
-        fig, axes = plt.subplots(figsize=(18, 8))
+        fig, ax = plt.subplots(figsize=(18, 8))
 
-        plot_acf(dataset_indexed[DAILY_TMAX], lags=52*8, ax=axes[0], alpha=0.05)
+        ax.set_xticks([i * WEEKS_IN_A_YEAR for i in range(8)])
+        ax.vlines(x=[i * WEEKS_IN_A_YEAR for i in range(8)], ymin=dataset_indexed[DAILY_TMAX].min(), ymax=dataset_indexed[DAILY_TMAX].max())
+        plot_acf(dataset_indexed[DAILY_TMAX], lags=WEEKS_IN_A_YEAR*8, alpha=0.05, ax=ax)
 
-        axes[0].set_title('ACF — Tmax (8 years of lags)')
         plt.savefig('Tmax_correlogram.png')
         print("Saved plot to file: Tmax_correlogram.png")
         pass
