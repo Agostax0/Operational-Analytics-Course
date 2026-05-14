@@ -1,5 +1,4 @@
 import numpy as np
-from Cython.Shadow import typeof
 from pandas import DataFrame
 
 from goto import goto
@@ -74,10 +73,42 @@ def local_search(routes, requests, cap, d):
     label.end
     return routes
 
+def iteratedLocalSearch(routes, requests, cap, d: np.ndarray, iterations, alpha):
+    z = None
+    zbest = z
+    rbest = None
+    for iter in range(iterations):
+        random_matrix = alpha * np.random.random(size = d.shape)
+        alpha = alpha / 10
+        dist_matrix = d * random_matrix
+        routes_1 = local_search(routes, requests, cap, d)
+        routes_2 = local_search(routes, requests, cap, dist_matrix)
+        z1 = compute_cost(routes_1, d)
+        z2 = compute_cost(routes_2, d)
+
+        if zbest is None or rbest is None:
+            zbest = z1
+            rbest = routes_1
+
+        if z1 < zbest:
+            zbest = z1
+            rbest = routes_1
+
+        if z2 < zbest:
+            zbest = z2
+            rbest = routes_2
+
+    return rbest
+
 DISTANZE_DEPOSITI_INDEX = 20
 
 DISTANZE_CLIENTI_DEPOSITO_INDEX = 21
-
+def compute_cost(routes, d):
+    total = 0
+    for route in routes:
+        for i in range(len(route) - 1):
+            total += d[route[i], route[i + 1]]
+    return total
 
 # tra le colonne della matrice
 # guardare quanto fa la somma => somma totale
@@ -149,9 +180,10 @@ if __name__ == "__main__":
 
     print(scatter.iloc[:,:].values[0]) # [ 1.    43.008 60.738]
 
-    sols, _ = initial_solution(distanze_depositi_df, richieste_array, 10, 50)
+    sols, _ = initial_solution(distanze_depositi_df, richieste_array, 5, 100)
 
     print(sols)
+    print(f"initial cost = {compute_cost(sols, distanze_depositi_df.to_numpy())}")
 
     for sol in sols:
         Xs = []
@@ -169,10 +201,38 @@ if __name__ == "__main__":
         )
 
     print(routes)
+    print(f"local search cost = {compute_cost(routes, distanze_depositi_df.to_numpy())}")
 
     plt.figure()
     plt.title('Optimal')
     plt.scatter(x=scatter['x'], y=scatter['y'], )
+
+    for sol in sols:
+        Xs = []
+        Ys = []
+        for node in sol:
+            pnt = scatter.iloc[:,:].values[node-2]
+            Xs.append(pnt[1])
+            Ys.append(pnt[2])
+        plt.plot(Xs, Ys)
+
+
+    plt.figure()
+    plt.title('iterated local search')
+    plt.scatter(x=scatter['x'], y=scatter['y'], )
+
+
+    routes = iteratedLocalSearch(
+        sols,
+        np.array(richieste_array),
+        100, distanze_depositi_df.to_numpy(),
+        2,
+        3
+        )
+
+    print(routes)
+    print(f"iterated local search cost = {compute_cost(routes, distanze_depositi_df.to_numpy())}")
+
 
     for sol in sols:
         Xs = []
