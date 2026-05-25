@@ -100,16 +100,6 @@ def xgb_regressor(X_train, Y_train, X_valid, Y_valid):
 
     return best_model
 
-def sliding_forecast(model, last_window, horizon):
-    window = last_window.copy()
-    preds = []
-    for _ in range(horizon):
-        next_pred = model.predict(window.reshape(1, -1))[0]
-        preds.append(next_pred)
-        window = np.roll(window, -1)
-        window[-1] = next_pred
-    return np.array(preds)
-
 
 if __name__ == "__main__":
     set_seed()
@@ -375,14 +365,19 @@ if __name__ == "__main__":
         else:
             for epoch in range(n_epochs):
                 model.train()
+                epoch_loss = 0.0
                 for X_batch, Y_batch in train_loader:
                     optimizer.zero_grad()
                     pred = model(X_batch)
                     loss = loss_fn(pred, Y_batch)
                     loss.backward()
                     optimizer.step()
+                    epoch_loss += loss.item()
+
                 if epoch % 10 == 0:
-                    print(f'Finished epoch {epoch}, latest loss {loss}')
+                    avg_loss = epoch_loss / len(train_loader)
+                    print(f'Epoch {epoch}, avg loss: {avg_loss:.6f}')
+
 
             print("Saved MLP model to file: best_mlp.pt")
             torch.save(model.state_dict(), 'best_mlp.pt')
