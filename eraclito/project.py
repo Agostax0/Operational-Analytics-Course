@@ -484,7 +484,6 @@ if __name__ == "__main__":
         Y_forecast = model.predict(dataset_indexed[features])
 
         rmse = root_mean_squared_error(test[target].values, Y_forecast[-test_size:])
-        print(f"Final Boost RMSE: {rmse}")
 
         fig, ax = plt.subplots(figsize=(18, 8))
         ax.set_title("XGBoost")
@@ -515,7 +514,7 @@ if __name__ == "__main__":
 
         # Final Sarimax RMSE: 2.979050238729731
         # Final MPL RMSE: 3.1869839775219075
-        # Final Boost RMSE: 2.48806966706833
+        # Final Boost RMSE: 2.529265551919133
 
         test = dataset_indexed[-test_size:][DAILY_TMAX]
 
