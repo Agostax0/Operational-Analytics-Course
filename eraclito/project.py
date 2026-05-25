@@ -114,9 +114,9 @@ def sliding_forecast(model, last_window, horizon):
 if __name__ == "__main__":
     set_seed()
 
-    flag_SARIMAX = False
-    flag_MLP = False
-    flag_XGBOOST = False
+    flag_SARIMAX = True
+    flag_MLP = True
+    flag_XGBOOST = True
 
     PragaDate = 'PragaDate'
     DAILY_TMIN = 'DAILY_TMIN'
@@ -503,7 +503,7 @@ if __name__ == "__main__":
         xgbboost_prediction = Y_forecast[-test_size:]
         pass
 
-    # Diebol mariano
+    # Diebold mariano
     if flag_SARIMAX and flag_XGBOOST and flag_MLP:
         sarimax_rmse = root_mean_squared_error(sarimax_test, sarimax_prediction)
         print(f"Sarimax RMSE: {sarimax_rmse}")
