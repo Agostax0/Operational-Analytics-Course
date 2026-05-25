@@ -10,7 +10,6 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from scipy.stats import shapiro
-from sklearn.metrics import mean_squared_error
 from sklearn.metrics import root_mean_squared_error
 from sklearn.preprocessing import StandardScaler
 from statsmodels.tsa.statespace.sarimax import SARIMAX, SARIMAXResults
@@ -80,7 +79,7 @@ def xgb_regressor(X_train, Y_train, X_valid, Y_valid):
         model = XGBRegressor(**params)
         model.fit(X_train, Y_train, eval_set=[(X_valid, Y_valid)], verbose=False, )
         pred_valid = model.predict(X_valid)
-        rmse = np.sqrt(mean_squared_error(Y_valid, pred_valid))
+        rmse = root_mean_squared_error(Y_valid, pred_valid)
         return rmse
 
     study = optuna.create_study(direction="minimize")
