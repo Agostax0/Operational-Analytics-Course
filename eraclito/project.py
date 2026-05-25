@@ -506,13 +506,17 @@ if __name__ == "__main__":
     # Diebold mariano
     if flag_SARIMAX and flag_XGBOOST and flag_MLP:
         sarimax_rmse = root_mean_squared_error(sarimax_test, sarimax_prediction)
-        print(f"Sarimax RMSE: {sarimax_rmse}")
+        print(f"Final Sarimax RMSE: {sarimax_rmse}")
 
         mlp_rmse = root_mean_squared_error(mlp_test, mlp_prediction)
         print(f"Final MPL RMSE: {mlp_rmse}")
 
         boost_rmse = root_mean_squared_error(xgbboost_test, xgbboost_prediction)
         print(f"Final Boost RMSE: {boost_rmse}")
+
+        # Final Sarimax RMSE: 2.979050238729731
+        # Final MPL RMSE: 3.1869839775219075
+        # Final Boost RMSE: 2.48806966706833
 
         test = dataset_indexed[-test_size:][DAILY_TMAX]
 
