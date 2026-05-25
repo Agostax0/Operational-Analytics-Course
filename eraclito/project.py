@@ -250,7 +250,8 @@ if __name__ == "__main__":
 
         # This method needs stationarity that will be checked with Augumented Dickey Fuller test
         # adf = adfuller(train[DAILY_TMAX].dropna())
-        #
+        # This is already used inside the pm.auto_arima method
+
         # auto_model = pm.auto_arima(train[DAILY_TMAX],
         #                         test='adf',
         #                         # exogenous=train[[DAILY_TMIN]],
@@ -516,25 +517,31 @@ if __name__ == "__main__":
 
         test = dataset_indexed[-test_size:][DAILY_TMAX]
 
+        # Null Hypothesis holds <=> the two forecasts have the same accuracy
+        # Hypothesis rejection when it falls outside the [0.025, 0.975] range
+
         if flag_SARIMAX and flag_XGBOOST:
             rt = dm_test(test, sarimax_prediction[-test_size:], xgbboost_prediction[-test_size:],crit='MSE')
-            ho = np.abs(rt[1]) < 0.025
-            print(f"Null Hypothesis between SARIMAX and XGBOOST approach (False = models are not statistically equivalent): {ho}")
-            # Null Hypothesis between SARIMAX and XGBOOST approach (False = models are not statistically equivalent): True
+            reject_ho = (rt[1] < 0.025) or (rt[1] > 1.0 - 0.025)
+            reject_ho_text = " not " if reject_ho else " "
+            print(f"SARIMAX and XGBOOST models are{reject_ho_text}statistically equivalent")
+            # SARIMAX and XGBOOST models are not statistically equivalent
             pass
 
         if flag_MLP and flag_XGBOOST:
             rt = dm_test(test, mlp_prediction[-test_size:], xgbboost_prediction[-test_size:], crit='MSE')
-            ho = np.abs(rt[1]) < 0.025
-            print(f"Null Hypothesis between MLP and XGBOOST approach (False = models are not statistically equivalent): {ho}")
-            # Null Hypothesis between MLP and XGBOOST approach (False = models are not statistically equivalent): True
+            reject_ho = (rt[1] < 0.025) or (rt[1] > 1.0 - 0.025)
+            reject_ho_text = " not " if reject_ho else " "
+            print(f"MLP and XGBOOST models are{reject_ho_text}statistically equivalent")
+            # MLP and XGBOOST models are not statistically equivalent
             pass
 
         if flag_SARIMAX and flag_MLP:
             rt = dm_test(test, sarimax_prediction[-test_size:], mlp_prediction[-test_size:], crit='MSE')
-            ho = np.abs(rt[1]) < 0.025
-            print(f"Null Hypothesis between SARIMAX and MLP approach (False = models are not statistically equivalent): {ho}")
-            # Null Hypothesis between SARIMAX and MLP approach (False = models are not statistically equivalent): False
+            reject_ho = (rt[1] < 0.025) or (rt[1] > 1.0 - 0.025)
+            reject_ho_text = " not " if reject_ho else " "
+            print(f"SARIMAX and MLP models are{reject_ho_text}statistically equivalent")
+            # SARIMAX and MLP models are statistically equivalent
             pass
 
     if flag_SARIMAX and flag_MLP and flag_XGBOOST:
