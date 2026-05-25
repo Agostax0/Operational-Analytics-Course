@@ -159,23 +159,27 @@ if __name__ == "__main__":
             # Check for normal distribution of data using the Wilk-Shapiro test
             _, p = shapiro(dataset[feature].dropna())
 
-            print(f"feature {feature}, p: {p}")
-            normally_distributed = "" if p > 0.05 else "Not "
-            print(f'\t{normally_distributed}normally distributed ({"" if p<0.05 else normally_distributed}refusing Null Hypothesis)')
+            # Null Hypothesis holds <=> feature is normally distributed
+            print(f"Feature {feature} with p: {p}")
+            reject_ho = (p < 0.05) # Only one tail instead of two tails in the Diebold Mariano test
+            reject_ho_text = " not " if reject_ho else " "
+            print(f"\tis{reject_ho_text}normally distributed")
 
         # No feature is normally Distributed
-        # feature DAILY_TMIN, p: 2.3353398457236163e-18
-        # 	Not normally distributed (refusing Null Hypothesis)
-        # feature DAILY_TMAX, p: 2.9995702681637455e-18
-        # 	Not normally distributed (refusing Null Hypothesis)
-        # feature DAILY_PREC, p: 4.76318265914823e-44
-        # 	Not normally distributed (refusing Null Hypothesis)
+        #Feature DAILY_TMIN with p: 2.3353398457236163e-18
+	    #   is not normally distributed
+        #Feature DAILY_TMAX with p: 2.9995702681637455e-18
+        #	is not normally distributed
+        #Feature DAILY_PREC with p: 4.76318265914823e-44
+        #	is not normally distributed
 
         # Finding outliers using IQR method, since no feature is normally distributed
         # Outliers must be found within individual months, since temperature values cannot be compared across months
         # July's temperature cannot be compared as an outlier of January
         daily_dataset[DAILY_TMAX_OUTLIER] = daily_dataset.groupby(daily_dataset[PragaDate].dt.month)[DAILY_TMAX].transform(iqr_outliers)
         daily_dataset[DAILY_TMIN_OUTLIER] = daily_dataset.groupby(daily_dataset[PragaDate].dt.month)[DAILY_TMIN].transform(iqr_outliers)
+
+        # Daily precipitation didn't result in any meaningful/interesting outlier
         # daily_dataset[DAILY_PREC_OUTLIER] = daily_dataset.groupby(daily_dataset[PragaDate].dt.month)[DAILY_PREC].transform(iqr_outliers)
 
         # print(dataset[DAILY_TMAX][dataset[DAILY_TMAX_OUTLIER]])
